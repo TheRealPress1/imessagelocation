@@ -61,7 +61,8 @@ final class SearchModel: NSObject, ObservableObject {
                 name: item.name ?? completion.title,
                 address: item.address?.fullAddress ?? "",
                 lat: coordinate.latitude,
-                lon: coordinate.longitude
+                lon: coordinate.longitude,
+                placeID: item.identifier?.rawValue
             )
         } catch {
             return nil

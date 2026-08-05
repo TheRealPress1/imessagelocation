@@ -12,12 +12,21 @@ final class LinkBuilderTests: XCTestCase {
         XCTAssertEqual(LinkBuilder.coordString(switchyards), "33.748995,-84.387982")
     }
 
-    func testAppleLinkCarriesNameAsPinLabel() throws {
+    func testAppleLinkUsesUnifiedPlaceForm() throws {
         let url = try XCTUnwrap(URLComponents(string: LinkBuilder.mapsURL(switchyards, .apple)))
         XCTAssertEqual(url.host, "maps.apple.com")
+        XCTAssertEqual(url.path, "/place")
         let q = url.queryItems ?? []
-        XCTAssertEqual(q.first(where: { $0.name == "ll" })?.value, "33.748995,-84.387982")
-        XCTAssertEqual(q.first(where: { $0.name == "q" })?.value, "Switchyards")
+        XCTAssertEqual(q.first(where: { $0.name == "coordinate" })?.value, "33.748995,-84.387982")
+        XCTAssertEqual(q.first(where: { $0.name == "name" })?.value, "Switchyards")
+        XCTAssertNil(q.first(where: { $0.name == "place-id" }), "no place-id when the Place has none")
+    }
+
+    func testAppleLinkIncludesPlaceIDWhenPresent() throws {
+        var withID = switchyards
+        withID.placeID = "IABC123DEF456"
+        let url = try XCTUnwrap(URLComponents(string: LinkBuilder.mapsURL(withID, .apple)))
+        XCTAssertEqual(url.queryItems?.first(where: { $0.name == "place-id" })?.value, "IABC123DEF456")
     }
 
     func testGoogleLinkPinsExactCoordinates() throws {
@@ -44,7 +53,7 @@ final class LinkBuilderTests: XCTestCase {
         let tricky = Place(id: "x", name: "Ben & Jerry's #1", address: "", lat: 33.7489954, lon: -84.3879824)
         let url = try XCTUnwrap(URLComponents(string: LinkBuilder.mapsURL(tricky, .apple)))
         // Round-trips through encode/decode without the & or # corrupting the query.
-        XCTAssertEqual(url.queryItems?.first(where: { $0.name == "q" })?.value, "Ben & Jerry's #1")
+        XCTAssertEqual(url.queryItems?.first(where: { $0.name == "name" })?.value, "Ben & Jerry's #1")
     }
 
     func testDefaultPayloadIsBareLink() {

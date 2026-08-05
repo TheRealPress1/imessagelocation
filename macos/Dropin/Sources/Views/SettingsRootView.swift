@@ -5,10 +5,11 @@ struct SettingsRootView: View {
     var body: some View {
         TabView {
             MapsSettings().tabItem { Label("Maps", systemImage: "map") }
+            FavoritesSettings().tabItem { Label("Favorites", systemImage: "star") }
             SearchSettings().tabItem { Label("Search", systemImage: "location.magnifyingglass") }
             HotkeySettings().tabItem { Label("Hotkey", systemImage: "command") }
         }
-        .frame(width: 480, height: 300)
+        .frame(width: 480, height: 380)
     }
 }
 
@@ -67,6 +68,47 @@ private struct HotkeySettings: View {
             Text("Include ⌘ or ⌃ — ⌥/⇧-only combos are blocked by macOS.")
                 .font(.caption).foregroundStyle(.secondary)
             Button("Reset to default") { KeyboardShortcuts.reset(.togglePanel) }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct FavoritesSettings: View {
+    private let store = FavoritesStore.shared
+
+    var body: some View {
+        Form {
+            if store.favorites.isEmpty {
+                Text("No favorites yet. In the Dropin panel, search or drop a place and press ☆ (or ⌘D). Then name it here.")
+                    .foregroundStyle(.secondary)
+            } else {
+                Section {
+                    List {
+                        ForEach(store.favorites) { fav in
+                            HStack(spacing: 10) {
+                                TextField(
+                                    "Label",
+                                    text: Binding(
+                                        get: { fav.label },
+                                        set: { store.rename(id: fav.id, label: $0) }),
+                                    prompt: Text(fav.place.name)
+                                )
+                                Spacer()
+                                Text(fav.place.name)
+                                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                        }
+                        .onMove { store.move(from: $0, to: $1) }
+                        .onDelete { indexSet in
+                            for index in indexSet { store.remove(id: store.favorites[index].id) }
+                        }
+                    }
+                    .frame(minHeight: 200)
+                } footer: {
+                    Text("Name each place (e.g. “Home”), drag to reorder — ⌘1–9 in the panel match this order. Swipe or ⌫ to delete. The label is only shown to you; the sent link always uses the real place.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
     }

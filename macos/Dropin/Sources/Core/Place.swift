@@ -9,4 +9,7 @@ struct Place: Equatable, Codable, Sendable, Identifiable {
     var address: String
     var lat: Double
     var lon: Double
+    /// Apple Maps place identifier (MKMapItem.identifier.rawValue), when the place came from
+    /// search. Lets the Apple link resolve to the canonical named card in iMessage.
+    var placeID: String? = nil
 }

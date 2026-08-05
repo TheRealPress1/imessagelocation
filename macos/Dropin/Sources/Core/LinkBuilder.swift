@@ -21,8 +21,14 @@ enum LinkBuilder {
         case .geo:
             return "geo:\(ll)?q=\(enc("\(ll)(\(p.name))"))"
         case .apple:
-            // With `ll` present Apple treats `q` as the pin label, so the recipient sees the name.
-            return "https://maps.apple.com/?ll=\(ll)&q=\(enc(p.name))"
+            // Unified maps.apple.com/place form (macOS 15.4+). A place-id resolves to the canonical
+            // POI card in iMessage's rich preview (a bare ll+q link renders a generic "Location"
+            // pin); coordinate keeps the exact pin; name/address label it and are the fallback.
+            var params = ["coordinate=\(ll)"]
+            if let id = p.placeID, !id.isEmpty { params.insert("place-id=\(enc(id))", at: 0) }
+            if !p.name.isEmpty { params.append("name=\(enc(p.name))") }
+            if !p.address.isEmpty { params.append("address=\(enc(p.address))") }
+            return "https://maps.apple.com/place?" + params.joined(separator: "&")
         }
     }
 
