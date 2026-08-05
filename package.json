@@ -79,8 +79,29 @@
         {
           "title": "Name, address, then link",
           "value": "nameAddressLink"
+        },
+        {
+          "title": "Markdown link — [Name](url), for Slack/Notion",
+          "value": "markdownLink"
+        },
+        {
+          "title": "Address only (no link)",
+          "value": "address"
+        },
+        {
+          "title": "Name, address — link, on one line",
+          "value": "nameAddressInline"
         }
       ]
+    },
+    {
+      "name": "showDetail",
+      "title": "Result Details",
+      "label": "Show the detail pane by default",
+      "description": "Open each search with the detail pane (full address, coordinates, and every provider's link) already visible. You can also toggle it with ⌘D.",
+      "type": "checkbox",
+      "required": false,
+      "default": false
     },
     {
       "name": "bias",
@@ -89,6 +110,24 @@
       "type": "textfield",
       "required": false,
       "placeholder": "33.749,-84.388"
+    },
+    {
+      "name": "distanceUnit",
+      "title": "Distance Units",
+      "description": "Units for the distance shown on each result. Only used when “Search Near” is set.",
+      "type": "dropdown",
+      "required": false,
+      "default": "km",
+      "data": [
+        {
+          "title": "Kilometres / metres",
+          "value": "km"
+        },
+        {
+          "title": "Miles / feet",
+          "value": "mi"
+        }
+      ]
     },
     {
       "name": "geocoder",

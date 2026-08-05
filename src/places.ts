@@ -11,13 +11,19 @@
  * ------------------------------------------------------------------ */
 
 export type MapProvider = "apple" | "google" | "osm" | "geo";
-export type OutputFormat = "link" | "nameLink" | "nameInline" | "nameAddressLink";
+export type OutputFormat =
+  "link" | "nameLink" | "nameInline" | "nameAddressLink" | "markdownLink" | "address" | "nameAddressInline";
+export type DistanceUnit = "km" | "mi";
 
 export interface Preferences {
   provider: MapProvider;
   outputFormat?: OutputFormat;
   bias?: string;
   geocoder?: string;
+  /** Units for the distance-from-bias shown on results. Defaults to "km". */
+  distanceUnit?: DistanceUnit;
+  /** Whether the detail pane starts open. Also toggled at runtime with ⌘D. */
+  showDetail?: boolean;
 }
 
 export const DEFAULT_GEOCODER = "https://photon.komoot.io/api";
@@ -210,8 +216,130 @@ export function buildPayload(place: Place, prefs: Preferences): string {
       return `${place.name} — ${url}`;
     case "nameAddressLink":
       return [place.name, place.address, url].filter(Boolean).join("\n");
+    case "markdownLink":
+      // Markdown link text is literal; the URL is already query-encoded by mapsUrl.
+      return `[${place.name}](${url})`;
+    case "address":
+      // A bare address, with a fall back to the name so we never emit nothing.
+      return place.address || place.name;
+    case "nameAddressInline":
+      return `${[place.name, place.address].filter(Boolean).join(", ")} — ${url}`;
     case "link":
     default:
       return url;
   }
+}
+
+/** ------------------------------------------------------------------
+ * Recents & favorites — pure list reducers.
+ *
+ * Kept here rather than in the UI layer so their dedup/cap/ordering
+ * semantics are exercised by the Node test suite. The UI only persists the
+ * arrays these return (via LocalStorage) and re-renders off the new reference.
+ * ------------------------------------------------------------------ */
+
+/** How many recently sent places to remember. Favorites are uncapped. */
+export const RECENTS_CAP = 12;
+
+/** True if any entry in `list` shares this id. */
+export function containsId(list: Place[], id: string): boolean {
+  return list.some((p) => p.id === id);
+}
+
+/**
+ * Prepend `place`, drop any prior entry with the same id, then cap the length.
+ * Re-sending a place moves it to the front instead of duplicating it.
+ * Returns a new array; never mutates `list`.
+ */
+export function addToRecents(list: Place[], place: Place, cap: number = RECENTS_CAP): Place[] {
+  return [place, ...list.filter((p) => p.id !== place.id)].slice(0, Math.max(0, cap));
+}
+
+/** Return a new array with the entry whose id === `id` removed. */
+export function removeById(list: Place[], id: string): Place[] {
+  return list.filter((p) => p.id !== id);
+}
+
+/** Toggle `place` in a favorites list: remove if already present, else prepend. New array. */
+export function toggleFavorite(list: Place[], place: Place): Place[] {
+  return containsId(list, place.id) ? removeById(list, place.id) : [place, ...list];
+}
+
+/**
+ * The two sections shown when the search bar is idle. A place that is both
+ * pinned and recent appears only under Favorites, never twice.
+ */
+export function idleSections(favorites: Place[], recents: Place[]): { favorites: Place[]; recents: Place[] } {
+  return { favorites, recents: recents.filter((r) => !containsId(favorites, r.id)) };
+}
+
+/** ------------------------------------------------------------------
+ * Distance — pure geo helpers for the "Search Near" bias.
+ * ------------------------------------------------------------------ */
+
+/** Great-circle distance in kilometres between two lat/lon points. */
+export function haversineKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const R = 6371; // mean Earth radius, km
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLon = toRad(bLon - aLon);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLon / 2) ** 2;
+  // Math.min guards floating-point overshoot at antipodal points.
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/**
+ * Human-friendly distance. Sub-kilometre distances read as metres (km) or
+ * feet (mi) so a venue down the street shows "300 m", not "0.3 km".
+ * Returns "" for a nonsensical input so callers can skip rendering it.
+ */
+export function formatDistance(km: number, unit: DistanceUnit = "km"): string {
+  if (!Number.isFinite(km) || km < 0) return "";
+  if (unit === "mi") {
+    const miles = km * 0.621371;
+    if (miles < 0.1) return `${Math.round(miles * 5280)} ft`;
+    return `${miles < 10 ? miles.toFixed(1) : Math.round(miles)} mi`;
+  }
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
+}
+
+/**
+ * Distance from the user's "Search Near" bias to a place, formatted.
+ * Returns null when no usable bias is set, so the UI can omit the accessory.
+ */
+export function distanceLabel(place: Place, prefs: Preferences): string | null {
+  const bias = parseBias(prefs.bias);
+  if (!bias) return null;
+  return formatDistance(haversineKm(bias.lat, bias.lon, place.lat, place.lon), prefs.distanceUnit ?? "km");
+}
+
+/** ------------------------------------------------------------------
+ * Detail pane — pure builders for List.Item.Detail content.
+ * ------------------------------------------------------------------ */
+
+/** Every provider's link for a place, in a stable order. */
+export function allProviderLinks(place: Place): { provider: MapProvider; label: string; url: string }[] {
+  const labels: Record<MapProvider, string> = {
+    apple: "Apple Maps",
+    google: "Google Maps",
+    osm: "OpenStreetMap",
+    geo: "geo: URI",
+  };
+  const order: MapProvider[] = ["apple", "google", "osm", "geo"];
+  return order.map((provider) => ({ provider, label: labels[provider], url: mapsUrl(place, provider) }));
+}
+
+/** CommonMark body for the detail pane: heading, address, distance, and every provider link. */
+export function detailMarkdown(place: Place, prefs: Preferences): string {
+  const lines = [`## ${place.name}`];
+  if (place.address) lines.push(place.address);
+  const distance = distanceLabel(place, prefs);
+  if (distance) lines.push(`_${distance} from your search area_`);
+  lines.push("", "**Open in:**");
+  for (const { label, url } of allProviderLinks(place)) {
+    // geo: URIs aren't clickable in a Markdown renderer; render them as code.
+    lines.push(url.startsWith("geo:") ? `- ${label}: \`${url}\`` : `- [${label}](${url})`);
+  }
+  return lines.join("\n");
 }
