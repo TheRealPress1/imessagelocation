@@ -11,6 +11,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?   // retained for the app's lifetime, or the icon vanishes
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // A freshly-launched build wins: terminate any older Dropin instance still running
+        // in the menu bar, so a stale build can't shadow a new run during development.
+        if let bundleID = Bundle.main.bundleIdentifier {
+            let me = NSRunningApplication.current
+            for other in NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+            where other.processIdentifier != me.processIdentifier {
+                other.terminate()
+            }
+        }
+
         AppDelegate.shared = self
         NSApp.setActivationPolicy(.accessory)   // no Dock icon (also LSUIElement in Info.plist)
 
