@@ -1,0 +1,70 @@
+name: Dropin
+options:
+  bundleIdPrefix: com.dropin
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+
+packages:
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: "3.0.1"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"            # Swift 5 language mode (compiled by the 6.3 toolchain); explicit @MainActor where needed
+    DEVELOPMENT_TEAM: "8HN6V7WUTB"
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "Apple Development"
+    ENABLE_HARDENED_RUNTIME: "YES"  # required for notarisation; orthogonal to sandbox
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  Dropin:
+    type: application
+    platform: macOS
+    sources:
+      - Dropin/Sources
+    dependencies:
+      - package: KeyboardShortcuts
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dropin.app
+        PRODUCT_NAME: Dropin
+    info:
+      path: Dropin/Info.plist
+      properties:
+        LSUIElement: true          # status-bar agent: no Dock icon, no menu bar
+        CFBundleName: Dropin
+        CFBundleDisplayName: Dropin
+    entitlements:
+      path: Dropin/Dropin.entitlements
+      properties:
+        com.apple.security.app-sandbox: false   # sandbox OFF: CGEvent paste + Accessibility need it. Developer-ID/notarised, not App Store.
+
+  # Pure-logic tests: compile ONLY the Foundation-only Core files + tests (no app, no host),
+  # mirroring how v0's places.test.ts imports places.ts directly under bare `node`.
+  DropinTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Dropin/Sources/Core
+      - Tests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dropin.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+
+schemes:
+  Dropin:
+    build:
+      targets:
+        Dropin: all
+        DropinTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DropinTests
