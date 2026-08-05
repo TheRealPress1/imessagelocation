@@ -64,8 +64,8 @@ opens the right pin.
 Not on the Raycast store yet. To run it locally:
 
 ```bash
-git clone https://github.com/gmoney/dropin.git
-cd dropin
+git clone https://github.com/TheRealPress1/imessagelocation.git
+cd imessagelocation
 npm install
 npm run dev
 ```

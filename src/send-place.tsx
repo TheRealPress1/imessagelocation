@@ -32,7 +32,7 @@ export default function SendPlace() {
       // request is in flight, so the list doesn't flicker empty.
       keepPreviousData: true,
       headers: {
-        "User-Agent": "Dropin-Raycast (+https://github.com/gmoney/dropin)",
+        "User-Agent": "Dropin-Raycast (+https://github.com/TheRealPress1/imessagelocation)",
         Accept: "application/json",
       },
       onError: async (error) => {
