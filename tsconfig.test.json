@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/places.ts", "tests/**/*.ts"],
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist-test",
+    "jsx": "react-jsx",
+    "types": ["node"]
+  }
+}
