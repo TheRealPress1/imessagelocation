@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let panelController = PanelController()
     private var prefsWindow: NSWindow?
+    private var statusItem: NSStatusItem?   // retained for the app's lifetime, or the icon vanishes
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppDelegate.shared = self
@@ -17,9 +18,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
             self?.panelController.toggle()
         }
+
+        setUpStatusItem()
     }
 
     func togglePanel() { panelController.toggle() }
+
+    // MARK: - Menu-bar status item (single left-click opens the panel)
+
+    private func setUpStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        if let button = item.button {
+            let image = NSImage(systemSymbolName: "mappin.and.ellipse", accessibilityDescription: "Dropin")
+            image?.isTemplate = true   // adapt to light/dark menu bar
+            button.image = image
+            button.target = self
+            button.action = #selector(statusItemClicked(_:))
+            // Receive both mouse buttons so we can branch left- vs right-click ourselves.
+            // (No persistent statusItem.menu — that would open a menu on every click.)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+        statusItem = item
+    }
+
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        let isSecondaryClick = event?.type == .rightMouseUp || (event?.modifierFlags.contains(.control) ?? false)
+        if isSecondaryClick {
+            showStatusMenu()
+        } else {
+            togglePanel()   // one click → straight to the search panel
+        }
+    }
+
+    private func showStatusMenu() {
+        guard let statusItem else { return }
+
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Preferences…", action: #selector(preferencesMenuItemSelected), keyEquivalent: ",").target = self
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit Dropin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+
+        // Attach the menu transiently, pop it, then detach so left-click stays an action.
+        statusItem.menu = menu
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
+    }
+
+    @objc private func preferencesMenuItemSelected() { openPreferences() }
 
     /// macOS 26: SwiftUI's openSettings/SettingsLink are unreliable from a menu-bar
     /// app, so we own the preferences window in AppKit. Flip to .regular so it can
@@ -30,7 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if prefsWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 340),
+                contentRect: NSRect(x: 0, y: 0, width: 480, height: 420),
                 styleMask: [.titled, .closable, .miniaturizable],
                 backing: .buffered,
                 defer: false

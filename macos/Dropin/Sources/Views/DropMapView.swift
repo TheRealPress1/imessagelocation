@@ -47,18 +47,21 @@ struct DropMapView: View {
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         var name = String(format: "%.5f, %.5f", coordinate.latitude, coordinate.longitude)
         var address = ""
+        var placeID: String? = nil
 
         if let request = MKReverseGeocodingRequest(location: location),
            let items = try? await request.mapItems,
            let item = items.first {
             name = item.name ?? item.address?.fullAddress ?? name
             address = item.address?.fullAddress ?? ""
+            placeID = item.identifier?.rawValue
         }
 
         droppedName = name
         onDrop(Place(
             id: "\(coordinate.latitude),\(coordinate.longitude)",
             name: name, address: address,
-            lat: coordinate.latitude, lon: coordinate.longitude))
+            lat: coordinate.latitude, lon: coordinate.longitude,
+            placeID: placeID))
     }
 }
