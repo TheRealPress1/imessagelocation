@@ -38,6 +38,11 @@ targets:
         LSUIElement: true          # status-bar agent: no Dock icon, no menu bar
         CFBundleName: Dropin
         CFBundleDisplayName: Dropin
+        UTExportedTypeDeclarations:  # private drag type for reordering favorite chips in-app
+          - UTTypeIdentifier: com.dropin.place
+            UTTypeDescription: Dropin favorite place
+            UTTypeConformsTo:
+              - public.data
     entitlements:
       path: Dropin/Dropin.entitlements
       properties:
